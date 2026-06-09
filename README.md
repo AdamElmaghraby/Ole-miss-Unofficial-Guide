@@ -9,10 +9,9 @@
 
 ## Domain
 
-<!-- What topic or category of knowledge does your system cover?
-     Why is this knowledge valuable, and why is it hard to find through official channels?
-     Example: "Student reviews of CS professors at [university] — useful because official
-     course descriptions don't reflect teaching style, exam difficulty, or workload." -->
+The Oxford/Ole Miss Off-Campus Housing & Commuting Reality Check.
+     This is useful because of the competetive hosuing market for Ole Miss students, will equip upcoming students with the knowledge they need to make the best decesion for their stay in Oxford.This knowledge is crucial for students but is entirely absent from the official Ole Miss housing and transit websites.
+
 
 ---
 
@@ -22,18 +21,20 @@
      Be specific: include URLs, subreddit names, forum thread titles, or file names.
      Aim for variety — sources that together cover different subtopics or perspectives. -->
 
+## Document Sources
+     
 | # | Source | Type | URL or file path |
-|---|--------|------|-----------------|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
-| 6 | | | |
-| 7 | | | |
-| 8 | | | |
-| 9 | | | |
-| 10 | | | |
+| --- | --- | --- | --- |
+| 1 | r/olemiss - Looking for Apartments In Oxford MS - The Good The Bad, and The Ugly | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1ftqigl/looking_for_apartments_in_oxford_ms_the_good_the/](https://www.reddit.com/r/olemiss/comments/1ftqigl/looking_for_apartments_in_oxford_ms_the_good_the/)` |
+| 2 | r/olemiss - cheap Oxford Apartments near OleMiss | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/171g7lp/cheap_oxford_apartments_near_olemiss/](https://www.reddit.com/r/olemiss/comments/171g7lp/cheap_oxford_apartments_near_olemiss/)` |
+| 3 | r/olemiss - apartment complex recommendations | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/f33vv7/apartment_complex_recommendations/](https://www.reddit.com/r/olemiss/comments/f33vv7/apartment_complex_recommendations/)` |
+| 4 | r/olemiss - Avoid Azul Apartments In Oxford at all Costs | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1ft6hbz/avoid_azul_apartments_in_oxford_at_all_costs/](https://www.reddit.com/r/olemiss/comments/1ft6hbz/avoid_azul_apartments_in_oxford_at_all_costs/)` |
+| 5 | r/olemiss - Northgate Apartments? (On-campus upperclassmen/grad housing) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1t1q61t/northgate_apartments/](https://www.reddit.com/r/olemiss/comments/1t1q61t/northgate_apartments/)` |
+| 6 | r/olemiss - Parking on campus? (Morning lot fill-up times) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1t0elp2/parking_on_campus/](https://www.reddit.com/r/olemiss/comments/1t0elp2/parking_on_campus/)` |
+| 7 | r/olemiss - Parking (Strict enforcement, Commuter Red passes, and OUT bus) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1n2p7f7/parking/](https://www.reddit.com/r/olemiss/comments/1n2p7f7/parking/)` |
+| 8 | r/olemiss - Parking after 5 (Unwritten 5 PM to 7 AM zone rules) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1f21o0d/parking_after_5/](https://www.reddit.com/r/olemiss/comments/1f21o0d/parking_after_5/)` |
+| 9 | r/olemiss - Where is a good place to park? (Visitor parking & temporary passes) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1dz35ug/where_is_a_good_place_to_park/](https://www.reddit.com/r/olemiss/comments/1dz35ug/where_is_a_good_place_to_park/)` |
+| 10 | r/olemiss - Gameday Parking (Shuttles, Jackson Avenue Center, and paid local lots) | Reddit Thread | `[https://www.reddit.com/r/olemiss/comments/1owxytm/gameday_parking/](https://www.reddit.com/r/olemiss/comments/1owxytm/gameday_parking/)` |
 
 ---
 
