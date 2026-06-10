@@ -1,5 +1,5 @@
 """
-ingest.py — Milestone 3: Ingestion & Chunking for the RAG system.
+ingest.py — Milestones 3 & 4: Ingestion, Chunking, Embedding & Retrieval.
 
 This script:
   1. Loads every .txt file in the documents/ directory.
@@ -7,15 +7,17 @@ This script:
   3. Splits the cleaned text into overlapping chunks with LangChain's
      RecursiveCharacterTextSplitter (size=500, overlap=100).
   4. Attaches the source filename as metadata to every chunk.
+  5. Embeds the chunks with SentenceTransformer('all-MiniLM-L6-v2') and stores
+     them in a local, on-disk ChromaDB collection (./chroma_db).
+  6. Exposes retrieve_documents(query, top_k=4) for semantic search.
 
 Run directly (`python ingest.py`) to execute the verification block at the
-bottom, which prints the total chunk count and 5 random chunks for inspection.
+bottom: it ingests + embeds everything, then runs a sample retrieval query.
 
-Requires: pip install langchain-text-splitters   (or the full `langchain` package)
+Requires: pip install langchain-text-splitters sentence-transformers chromadb
 """
 
 import os
-import random
 import re
 
 # LangChain split the text splitters into their own lightweight package
@@ -57,6 +59,16 @@ DOCUMENTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docume
 # Chunking parameters required by the milestone spec.
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
+
+# --- Embedding & vector store (Milestone 4) -------------------------------
+# Sentence-Transformers model used to embed both chunks and queries. It must be
+# the SAME model for storage and retrieval so the vectors live in one space.
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+
+# On-disk ChromaDB location, resolved next to this script so the persisted
+# vectors are saved regardless of the working directory.
+CHROMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
+COLLECTION_NAME = "olemiss_guide"
 
 # --- Tier 1: substring keywords -------------------------------------------
 # Lower-cased substrings. A line is dropped if it CONTAINS any of these.
@@ -297,30 +309,190 @@ def ingest(directory=DOCUMENTS_DIR):
 
 
 # ---------------------------------------------------------------------------
-# Step 3: Verification test script
+# Step 3: Embedding & vector storage (Milestone 4)
+# ---------------------------------------------------------------------------
+
+# The embedding model is heavy to construct, so we load it once and reuse it
+# across both storage and retrieval.
+_embedding_model = None
+
+
+def get_embedding_model():
+    """Return a cached SentenceTransformer('all-MiniLM-L6-v2') instance."""
+    global _embedding_model
+    if _embedding_model is None:
+        # Imported lazily so chunking alone doesn't require the heavy deps.
+        from sentence_transformers import SentenceTransformer
+
+        _embedding_model = SentenceTransformer(EMBED_MODEL_NAME)
+    return _embedding_model
+
+
+def _clean_metadata(metadata):
+    """ChromaDB metadata values must be str/int/float/bool — drop None values.
+
+    Single-topic threads have no apartment/category, so those keys are None and
+    must be removed before they're handed to Chroma.
+    """
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def embed_and_store(chunks, persist_dir=CHROMA_DIR, collection_name=COLLECTION_NAME):
+    """Embed chunks and persist them to an on-disk ChromaDB collection.
+
+    The collection is recreated from scratch on every run so re-ingesting never
+    duplicates vectors. Each vector keeps its source filename (plus apartment /
+    category / title when available) as metadata.
+
+    Returns the populated Chroma collection.
+    """
+    import chromadb
+
+    model = get_embedding_model()
+
+    texts = [chunk.page_content for chunk in chunks]
+    metadatas = [_clean_metadata(chunk.metadata) for chunk in chunks]
+    # Stable, unique id per chunk: "<source>::<index>".
+    ids = [
+        f"{chunk.metadata.get('source', 'doc')}::{i}"
+        for i, chunk in enumerate(chunks)
+    ]
+
+    # Embed every chunk (returns a numpy array; Chroma wants plain lists).
+    embeddings = model.encode(texts, show_progress_bar=False).tolist()
+
+    # PersistentClient writes the vectors to disk at persist_dir.
+    client = chromadb.PersistentClient(path=persist_dir)
+    # Start clean: drop any existing collection of the same name.
+    try:
+        client.delete_collection(collection_name)
+    except Exception:
+        pass
+    collection = client.create_collection(
+        name=collection_name,
+        # Cosine distance is the natural fit for sentence-transformer vectors
+        # (0 = identical, larger = less similar).
+        metadata={"hnsw:space": "cosine"},
+    )
+
+    collection.add(
+        ids=ids,
+        embeddings=embeddings,
+        documents=texts,
+        metadatas=metadatas,
+    )
+    return collection
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Retrieval
+# ---------------------------------------------------------------------------
+
+def retrieve_documents(query, top_k=4, persist_dir=CHROMA_DIR, collection_name=COLLECTION_NAME):
+    """Semantic search over the persisted ChromaDB collection.
+
+    Loads the on-disk collection (independent of any in-memory state), embeds
+    `query` with the same model used for storage, and returns the top_k most
+    similar chunks.
+
+    Returns a list of dicts: {"text", "metadata", "distance"}, ordered from
+    most to least similar (smallest cosine distance first).
+    """
+    import chromadb
+
+    model = get_embedding_model()
+    query_embedding = model.encode([query]).tolist()
+
+    client = chromadb.PersistentClient(path=persist_dir)
+    collection = client.get_collection(collection_name)
+
+    results = collection.query(
+        query_embeddings=query_embedding,
+        n_results=top_k,
+    )
+
+    # Chroma nests results one level per query; we sent a single query.
+    documents = results["documents"][0]
+    metadatas = results["metadatas"][0]
+    distances = results["distances"][0]
+
+    return [
+        {"text": text, "metadata": metadata, "distance": distance}
+        for text, metadata, distance in zip(documents, metadatas, distances)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Step 5: Verification test script
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # 1. Ingest + chunk every document.
     chunks = ingest()
-
     print("=" * 70)
     print(f"Total chunks generated across all documents: {len(chunks)}")
+
+    # 2. Embed the chunks and persist them to ./chroma_db.
+    print(f"Embedding chunks with '{EMBED_MODEL_NAME}' and storing in {CHROMA_DIR} ...")
+    embed_and_store(chunks)
+    print(f"Stored {len(chunks)} vectors in ChromaDB collection '{COLLECTION_NAME}'.")
     print("=" * 70)
 
-    # Randomly sample up to 5 chunks for visual inspection of formatting.
-    sample_size = min(5, len(chunks))
-    sample = random.sample(chunks, sample_size)
+    # 3. Run the 5 evaluation questions from planning.md (the Evaluation Plan
+    #    table). Each tuple is (question, expected answer) so retrieval quality
+    #    can be judged against the documented ground truth.
+    eval_questions = [
+        (
+            "What do tenants say about the maintenance at the Azul?",
+            "The maintenance at Azul does not respond or care for tenants.",
+        ),
+        (
+            "What time do campus commuter parking lots typically fill up to "
+            "capacity in the morning?",
+            "Students state that commuter parking lots consistently fill up "
+            "completely between 9:00 AM and 10:00 AM.",
+        ),
+        (
+            "What are the unwritten rules for parking in faculty or restricted "
+            "zones after 5:00 PM?",
+            "Zone enforcement loosens from 5:00 PM to 7:00 AM, allowing students "
+            "to park in most standard zones, provided the spot is not marked as "
+            "24/7 reserved or handicapped.",
+        ),
+        (
+            "What is the general student consensus regarding living at Northgate "
+            "Apartments?",
+            "It is viewed as a convenient, affordable on-campus housing option "
+            "for upperclassmen or graduate students, though the facilities are "
+            "older.",
+        ),
+        (
+            "How do off-campus students living in local complexes utilize the "
+            "OUT bus transit system to handle parking issues?",
+            "Students leverage the apartment complex shuttle loops / OUT bus to "
+            "ride directly to campus, bypassing the need for a commuter parking "
+            "pass.",
+        ),
+    ]
 
-    print(f"\nShowing {sample_size} random chunks:\n")
-    for i, chunk in enumerate(sample, start=1):
-        print(f"--- Chunk {i} ---")
-        print(f"Source   : {chunk.metadata.get('source')}")
-        # Show the structured context captured during splitting, when present.
-        if chunk.metadata.get("apartment"):
-            print(f"Apartment: {chunk.metadata.get('apartment')}")
-        if chunk.metadata.get("category"):
-            print(f"Category : {chunk.metadata.get('category')}")
-        print(f"Length   : {len(chunk.page_content)} chars")
-        print("Text     :")
-        print(chunk.page_content)
-        print()
+    for q_num, (question, expected) in enumerate(eval_questions, start=1):
+        print("\n" + "#" * 70)
+        print(f"Q{q_num}: {question}")
+        print(f"Expected: {expected}")
+        print("#" * 70)
+
+        results = retrieve_documents(question, top_k=4)
+        print(f"Top {len(results)} retrieved chunks:\n")
+        for rank, result in enumerate(results, start=1):
+            metadata = result["metadata"]
+            print(f"--- Result {rank} ---")
+            print(f"Source   : {metadata.get('source')}")
+            if metadata.get("apartment"):
+                print(f"Apartment: {metadata.get('apartment')}")
+            if metadata.get("category"):
+                print(f"Category : {metadata.get('category')}")
+            # Lower cosine distance == more semantically similar.
+            print(f"Distance : {result['distance']:.4f}")
+            print("Text     :")
+            print(result["text"])
+            print()
